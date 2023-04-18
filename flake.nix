@@ -48,27 +48,25 @@
           src = purescript-tsd-gen;
           stackYaml = "stack-purs${version}.yaml";
         };
-
-        project1 = pkgs.haskell-nix.stackProject' {
-          name = "purescript-tsd-gen";
-          src = purescript-tsd-gen;
-          stackYaml = "stack-purs0.14.9.yaml";
-        };
         
         sanitiseName = pkgs.lib.stringAsChars (c:
           if c == "."
           then "_"
           else c);
 
+        makePackages = getAttr: versions: project: builtins.listToAttrs (
+          builtins.map (version: {
+              name = "purs-tsd-gen-${sanitiseName version}"; 
+              value = (getAttr ((project version).flake {}))."purescript-tsd-gen:exe:purs-tsd-gen";
+            })
+            versions
+        );
+
       in {
-        apps = builtins.listToAttrs (
-            builtins.map (version: {
-                name = "purs-tsd-gen-${sanitiseName version}"; 
-                value = ((project version).flake {}).apps."purescript-tsd-gen:exe:purs-tsd-gen";
-              })
-              versions
-          );
-        inherit sanitiseName;
+        # i.e. nix run .\#purs-tsd-gen-0_14_9
+        apps = makePackages (flake: flake.apps) versions project;
+        # i.e. nix build .\#purs-tsd-gen-0_14_9
+        packages = makePackages (flake: flake.packages) versions project;
       }
   );
 }
