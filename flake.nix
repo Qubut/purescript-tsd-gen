@@ -11,16 +11,20 @@
   };
 
   inputs = {
-    purescript-tsd-gen = {
+    purescript-tsd-gen-14 = {
       url = "github:minoki/purescript-tsd-gen/purs0.14.x";
+      # flake = false;
+    };
+    purescript-tsd-gen-15 = {
+      url = "github:minoki/purescript-tsd-gen/purs0.15.x";
       # flake = false;
     };
     haskell-nix.url = "github:input-output-hk/haskell.nix";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, haskell-nix, purescript-tsd-gen, flake-utils, ... }:
-     let
+  outputs = { self, nixpkgs, haskell-nix, purescript-tsd-gen-14, purescript-tsd-gen-15, flake-utils, ... }:
+    let
       supportedSystems = [
         "x86_64-linux"
         "x86_64-darwin"
@@ -36,19 +40,32 @@
           inherit (haskell-nix) config; 
         };
 
-        versions = with builtins; 
+        versions14 = with builtins; 
             concatMap (name: 
               let matches = match "stack-purs(.*).yaml" name; in
                 if isList matches then matches else []
               )
-              (attrNames (readDir purescript-tsd-gen));
+              (attrNames (readDir purescript-tsd-gen-14));
 
-        project = version: pkgs.haskell-nix.stackProject' {
+        versions15 = with builtins; 
+            concatMap (name: 
+              let matches = match "stack-purs(.*).yaml" name; in
+                if isList matches then matches else []
+              )
+              (attrNames (readDir purescript-tsd-gen-15));
+
+        project14 = version: pkgs.haskell-nix.stackProject' {
           name = "purescript-tsd-gen";
-          src = purescript-tsd-gen;
+          src = purescript-tsd-gen-14;
           stackYaml = "stack-purs${version}.yaml";
         };
-        
+
+        project15 = version: pkgs.haskell-nix.stackProject' {
+          name = "purescript-tsd-gen";
+          src = purescript-tsd-gen-15;
+          stackYaml = "stack-purs${version}.yaml";
+        };
+
         sanitiseName = pkgs.lib.stringAsChars (c:
           if c == "."
           then "_"
@@ -64,9 +81,9 @@
 
       in {
         # i.e. nix run .\#purs-tsd-gen-0_14_9
-        apps = makePackages (flake: flake.apps) versions project;
+        apps = makePackages (flake: flake.apps) versions14 project14 // makePackages (flake: flake.apps) versions15 project15;
         # i.e. nix build .\#purs-tsd-gen-0_14_9
-        packages = makePackages (flake: flake.packages) versions project;
+        packages = makePackages (flake: flake.packages) versions14 project14 // makePackages (flake: flake.packages) versions15 project15;
       }
   );
 }
